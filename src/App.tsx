@@ -4,13 +4,18 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BlacksmithModal } from './components/BlacksmithModal';
 import { ClassSelectScreen } from './components/ClassSelectScreen';
+import { CollectionModal } from './components/CollectionModal';
+import { ControlSettingsModal } from './components/ControlSettingsModal';
+import { GachaShrineModal } from './components/GachaShrineModal';
 import { GameHUD } from './components/GameHUD';
 import { InventoryModal } from './components/InventoryModal';
 import { RunEndModal } from './components/RunEndModal';
 import { SkillTreeModal } from './components/SkillTreeModal';
 import { TouchControls } from './components/TouchControls';
 import { sfx } from './game/audio';
+import { CHARACTER_MAP, isCharacterSynergyActive } from './game/data';
 import { GameEngine } from './game/engine';
 import {
   clearActiveRun,
@@ -31,6 +36,10 @@ export default function App() {
   const [selectedClass, setSelectedClass] = useState<HeroClassId>('knight');
   const [savedRun, setSavedRun] = useState<ActiveRunSave | null>(() => loadActiveRun());
   const [meta, setMeta] = useState<MetaProgress>(() => loadMetaProgress());
+  const [blacksmithOpen, setBlacksmithOpen] = useState(false);
+  const [gachaOpen, setGachaOpen] = useState(false);
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [hud, setHud] = useState<HudSnapshot | null>(null);
   const [muted, setMuted] = useState(false);
   const [toast, setToast] = useState<{ text: string; color: string } | null>(null);
@@ -76,11 +85,16 @@ export default function App() {
     (classId: HeroClassId) => {
       sfx.unlock();
       clearActiveRun();
-      const eng = new GameEngine(classId, null);
+      const latestMeta = loadMetaProgress();
+      const charId = latestMeta.selectedCharacterId ?? 'bram';
+      if (isCharacterSynergyActive(charId, classId)) {
+        sfx.synergyEpic();
+      }
+      const eng = new GameEngine(classId, charId, null);
       engineRef.current = eng;
       attachEngineCallbacks(eng);
       setSavedRun(loadActiveRun());
-      setMeta(loadMetaProgress());
+      setMeta(latestMeta);
       setScreen('PLAYING');
     },
     [attachEngineCallbacks]
@@ -90,11 +104,48 @@ export default function App() {
     sfx.unlock();
     const active = loadActiveRun();
     if (!active) return;
-    const eng = new GameEngine(active.player.classId, active);
+    const eng = new GameEngine(
+      active.player.classId,
+      active.player.characterId ?? 'bram',
+      active
+    );
     engineRef.current = eng;
     attachEngineCallbacks(eng);
     setScreen('PLAYING');
   }, [attachEngineCallbacks]);
+
+  const handleTouchMove = useCallback((jx: number, jy: number) => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    eng.input.joyX = jx;
+    eng.input.joyY = jy;
+  }, []);
+
+  const handleTouchAttackChange = useCallback((active: boolean) => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    sfx.unlock();
+    eng.input.pointerAimActive = false;
+    eng.input.attack = active;
+  }, []);
+
+  const handleTouchDash = useCallback(() => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    sfx.unlock();
+    eng.performQuickDash();
+  }, []);
+
+  const handleTouchSkill = useCallback(() => {
+    const eng = engineRef.current;
+    if (!eng) return;
+    sfx.unlock();
+    eng.performActiveSkill();
+  }, []);
+
+  const handleTouchSwap = useCallback(() => {
+    engineRef.current?.switchWeapon();
+  }, []);
 
   // Main 60fps animation loop
   useEffect(() => {
@@ -194,6 +245,9 @@ export default function App() {
       if (code === 'KeyH' && !e.repeat) {
         eng.usePotion();
       }
+      if ((code === 'KeyE' || code === 'KeyC') && !e.repeat) {
+        eng.performQuickDash();
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -233,14 +287,73 @@ export default function App() {
 
   if (screen === 'CLASS_SELECT') {
     return (
-      <ClassSelectScreen
-        selectedClass={selectedClass}
-        onSelectClass={setSelectedClass}
-        onStartNewRun={startNewRun}
-        savedRun={savedRun}
-        onResumeRun={resumeSavedRun}
-        meta={meta}
-      />
+      <>
+        <ClassSelectScreen
+          selectedClass={selectedClass}
+          onSelectClass={setSelectedClass}
+          onStartNewRun={startNewRun}
+          savedRun={savedRun}
+          onResumeRun={resumeSavedRun}
+          onOpenBlacksmith={() => {
+            setMeta(loadMetaProgress());
+            setBlacksmithOpen(true);
+          }}
+          onOpenGacha={() => {
+            setMeta(loadMetaProgress());
+            setGachaOpen(true);
+          }}
+          onOpenCollection={() => {
+            setMeta(loadMetaProgress());
+            setCollectionOpen(true);
+          }}
+          onOpenSettings={() => {
+            setMeta(loadMetaProgress());
+            setSettingsOpen(true);
+          }}
+          meta={meta}
+        />
+        {blacksmithOpen && (
+          <BlacksmithModal
+            meta={meta}
+            onMetaChange={setMeta}
+            onClose={() => setBlacksmithOpen(false)}
+          />
+        )}
+        {gachaOpen && (
+          <GachaShrineModal
+            meta={meta}
+            selectedClass={selectedClass}
+            onMetaChange={setMeta}
+            onClose={() => setGachaOpen(false)}
+          />
+        )}
+        {collectionOpen && (
+          <CollectionModal
+            meta={meta}
+            selectedClass={selectedClass}
+            onMetaChange={setMeta}
+            onOpenGacha={() => {
+              setCollectionOpen(false);
+              setGachaOpen(true);
+            }}
+            onClose={() => setCollectionOpen(false)}
+          />
+        )}
+        {settingsOpen && (
+          <ControlSettingsModal
+            meta={meta}
+            showTouchControls={showTouchControls}
+            muted={muted}
+            onMetaChange={setMeta}
+            onToggleTouchControls={() => setShowTouchControls((v) => !v)}
+            onToggleMute={() => {
+              sfx.muted = !muted;
+              setMuted(!muted);
+            }}
+            onClose={() => setSettingsOpen(false)}
+          />
+        )}
+      </>
     );
   }
 
@@ -294,34 +407,36 @@ export default function App() {
           onToggleTouchControls={() => setShowTouchControls((v) => !v)}
           onOpenInventory={() => setScreen('INVENTORY')}
           onOpenSkillTree={() => setScreen('SKILL_TREE')}
+          onOpenSettings={() => {
+            setMeta(loadMetaProgress());
+            setSettingsOpen(true);
+          }}
           onPause={() => setScreen('PAUSED')}
           onSwitchWeapon={() => engine?.switchWeapon()}
           onUsePotion={() => engine?.usePotion()}
         />
       )}
 
-      {showTouchControls && screen === 'PLAYING' && hud && (
-        <TouchControls
-          skillCooldown={hud.skillCooldown}
-          onMove={(jx, jy) => {
-            if (!engine) return;
-            engine.input.joyX = jx;
-            engine.input.joyY = jy;
-          }}
-          onAttackChange={(active) => {
-            if (!engine) return;
-            sfx.unlock();
-            engine.input.pointerAimActive = false;
-            engine.input.attack = active;
-          }}
-          onSkill={() => {
-            if (!engine) return;
-            sfx.unlock();
-            engine.performActiveSkill();
-          }}
-          onSwapWeapon={() => engine?.switchWeapon()}
-        />
-      )}
+      {showTouchControls &&
+        screen === 'PLAYING' &&
+        !settingsOpen &&
+        !blacksmithOpen &&
+        !gachaOpen &&
+        !collectionOpen &&
+        hud && (
+          <TouchControls
+            controlMode={meta.controlMode}
+            dpadSize={meta.dpadSize}
+            skillCooldown={hud.skillCooldown}
+            dodgeDashCooldown={hud.dodgeDashCooldown}
+            isUltimateHero={Boolean(CHARACTER_MAP[hud.characterId]?.isUltimate)}
+            onMove={handleTouchMove}
+            onAttackChange={handleTouchAttackChange}
+            onDash={handleTouchDash}
+            onSkill={handleTouchSkill}
+            onSwapWeapon={handleTouchSwap}
+          />
+        )}
 
       {screen === 'INVENTORY' && engine && (
         <InventoryModal
@@ -338,6 +453,11 @@ export default function App() {
           }}
           onCraft={(recipeId) => {
             const res = engine.craftItem(recipeId);
+            setUiTick((t) => t + 1);
+            return res;
+          }}
+          onBuyPotionWithGold={() => {
+            const res = engine.buyPotionWithGold();
             setUiTick((t) => t + 1);
             return res;
           }}
@@ -365,14 +485,33 @@ export default function App() {
             setScreen('PLAYING');
           }}
           onRestartSameClass={() => startNewRun(hud.classId)}
+          onOpenSettings={() => {
+            setMeta(loadMetaProgress());
+            setSettingsOpen(true);
+          }}
           onBackToClassSelect={() => {
             if (engine && screen !== 'GAME_OVER') {
-              saveActiveRun(engine.player, engine.dungeon.floor);
+              saveActiveRun(engine.player, engine.dungeon.floor, engine.dayCycleTime);
             }
             setSavedRun(loadActiveRun());
             setMeta(loadMetaProgress());
             setScreen('CLASS_SELECT');
           }}
+        />
+      )}
+
+      {settingsOpen && (
+        <ControlSettingsModal
+          meta={meta}
+          showTouchControls={showTouchControls}
+          muted={muted}
+          onMetaChange={setMeta}
+          onToggleTouchControls={() => setShowTouchControls((v) => !v)}
+          onToggleMute={() => {
+            sfx.muted = !muted;
+            setMuted(!muted);
+          }}
+          onClose={() => setSettingsOpen(false)}
         />
       )}
     </div>

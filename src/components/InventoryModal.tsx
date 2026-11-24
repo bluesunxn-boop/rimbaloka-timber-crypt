@@ -1,7 +1,16 @@
 import { useState } from 'react';
-import { Hammer, Recycle, Shield, X } from 'lucide-react';
-import { CRAFTING_RECIPES, RARITY_META, WEAPONS } from '../game/data';
+import { Flame, Hammer, Recycle, Shield, X } from 'lucide-react';
+import {
+  CHARACTER_MAP,
+  CRAFTING_RECIPES,
+  getRecipeRarityStyle,
+  getWeaponRarityStyle,
+  MAX_POTIONS,
+  RARITY_META,
+  WEAPONS,
+} from '../game/data';
 import { PlayerState } from '../game/types';
+import { PixelSpritePreview } from './PixelSpritePreview';
 
 interface InventoryModalProps {
   player: PlayerState;
@@ -9,6 +18,7 @@ interface InventoryModalProps {
   onEquip: (uid: string, slot: 0 | 1) => void;
   onSalvage: (uid: string) => void;
   onCraft: (recipeId: string) => { ok: boolean; message: string };
+  onBuyPotionWithGold?: () => { ok: boolean; message: string };
 }
 
 export function InventoryModal({
@@ -17,9 +27,13 @@ export function InventoryModal({
   onEquip,
   onSalvage,
   onCraft,
+  onBuyPotionWithGold,
 }: InventoryModalProps) {
   const [tab, setTab] = useState<'bag' | 'craft'>('bag');
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const maxPotions = player.characterId === 'ujang' ? MAX_POTIONS + 1 : MAX_POTIONS;
+  const activeHero = CHARACTER_MAP[player.characterId] ?? CHARACTER_MAP.bram;
 
   const slot0 = WEAPONS[player.equippedWeapons[0].defId];
   const slot1 = player.equippedWeapons[1]
@@ -77,32 +91,77 @@ export function InventoryModal({
         </div>
 
         {/* Material Strip */}
-        <div className="flex flex-wrap items-center gap-4 border-b border-[#1E3126] bg-[#0B120E] px-5 py-2.5 text-xs font-mono-num">
-          <span className="text-slate-300">
-            Kayu Biasa: <strong className="text-white">{player.materials.wood}</strong>
-          </span>
-          <span className="text-slate-600">·</span>
-          <span className="text-green-400">
-            Kayu Besi [RARE]: <strong>{player.materials.ironwood}</strong>
-          </span>
-          <span className="text-slate-600">·</span>
-          <span className="text-yellow-400">
-            Kayu Purba [MYTHIC]: <strong>{player.materials.elderwood}</strong>
-          </span>
-          <span className="text-slate-600">·</span>
-          <span className="text-emerald-300">
-            Ramuan: <strong>{player.materials.potions}</strong>
-          </span>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#1E3126] bg-[#0B120E] px-5 py-2.5 text-xs font-mono-num">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-slate-300">
+              Kayu: <strong className="text-white">{player.materials.wood}</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-green-400">
+              Kayu Besi: <strong>{player.materials.ironwood}</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-sky-300">
+              Shard: <strong>{player.materials.timberShards}</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-purple-300">
+              Soul: <strong>{player.materials.bossSouls}</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-emerald-300">
+              Ramuan: <strong>{player.materials.potions}/{maxPotions}</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-amber-300">
+              Gold: <strong>{player.materials.gold}</strong>
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="text-sky-300">
+              Gem: <strong>{player.materials.gems}</strong>
+            </span>
+          </div>
+
+          {onBuyPotionWithGold && (
+            <button
+              type="button"
+              disabled={player.materials.gold < 30 || player.materials.potions >= maxPotions}
+              onClick={() => {
+                const res = onBuyPotionWithGold();
+                setFeedback({ ok: res.ok, text: res.message });
+              }}
+              className={`rounded border px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap ${
+                player.materials.gold >= 30 && player.materials.potions < maxPotions
+                  ? 'border-amber-400/60 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 cursor-pointer'
+                  : 'border-[#25382C] bg-[#111B15] text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              {player.materials.potions >= maxPotions
+                ? `Ramuan Penuh (${maxPotions}/${maxPotions})`
+                : '+1 Ramuan (30 Gold)'}
+            </button>
+          )}
         </div>
 
-        {/* 6-Tier Color Legend */}
-        <div className="flex flex-wrap items-center gap-3 border-b border-[#1A2B21] bg-[#090F0B] px-5 py-2 text-[11px] font-mono-num">
-          <span className="text-slate-500">Tier:</span>
-          {(['common', 'rare', 'epic', 'langka', 'mythic', 'legendary'] as const).map((tier) => (
-            <span key={tier} className="font-bold" style={{ color: RARITY_META[tier].color }}>
-              {RARITY_META[tier].label}
-            </span>
-          ))}
+        {/* Tier Color Legend & Active Hero Synergy */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1A2B21] bg-[#090F0B] px-5 py-2 text-[11px] font-mono-num">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-slate-500">Tier:</span>
+            {(['common', 'uncommon', 'rare', 'epic', 'mythic', 'legendary'] as const).map((tier) => (
+              <span key={tier} className="font-bold" style={{ color: RARITY_META[tier].color }}>
+                {RARITY_META[tier].label}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-300">{activeHero.name}</span>
+            {player.synergyActive && (
+              <span className="inline-flex items-center gap-1 font-bold text-amber-300">
+                <Flame className="h-3 w-3 fill-orange-400 text-amber-300" />
+                {activeHero.synergyName}
+              </span>
+            )}
+          </div>
         </div>
 
         {feedback && (
@@ -126,7 +185,7 @@ export function InventoryModal({
                 </h3>
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {[slot0, slot1].map((wep, idx) => {
-                    const wepMeta = wep ? RARITY_META[wep.rarity] : null;
+                    const wepMeta = wep ? getWeaponRarityStyle(wep) : null;
                     return (
                       <div
                         key={idx}
@@ -151,15 +210,33 @@ export function InventoryModal({
                         </div>
                         {wep && wepMeta ? (
                           <>
-                            <p
-                              className="mt-1 text-sm font-bold"
-                              style={{ color: wepMeta.color }}
-                            >
-                              {wep.name}
-                            </p>
+                            <div className="mt-1 flex items-center gap-2">
+                              {(wep.spriteKey === 'sandal_swallow' ||
+                                wep.spriteKey === 'sandal_swallow_v2' ||
+                                wep.spriteKey === 'godslayer') && (
+                                <PixelSpritePreview
+                                  spriteKey={
+                                    wep.spriteKey as
+                                      | 'sandal_swallow'
+                                      | 'sandal_swallow_v2'
+                                      | 'godslayer'
+                                  }
+                                  size={28}
+                                />
+                              )}
+                              <p
+                                className="text-sm font-bold"
+                                style={{ color: wepMeta.color }}
+                              >
+                                {wep.name}
+                              </p>
+                            </div>
                             <p className="mt-1 text-xs text-slate-200 font-mono-num">
                               DMG {wep.damage} · Tebang {wep.chopMultiplier}x · Crit +
                               {Math.round(wep.critBonus * 100)}%
+                              {(wep.knockbackMult ?? 1) > 1
+                                ? ` · KB ${Math.round((wep.knockbackMult ?? 1) * 100)}%`
+                                : ''}
                             </p>
                             <p className="mt-1.5 text-xs text-slate-300">{wep.description}</p>
                           </>
@@ -188,7 +265,7 @@ export function InventoryModal({
                     {player.backpack.map((inst) => {
                       const w = WEAPONS[inst.defId];
                       if (!w) return null;
-                      const meta = RARITY_META[w.rarity];
+                      const meta = getWeaponRarityStyle(w);
                       const salvageWood = meta.salvageWood;
                       return (
                         <div
@@ -197,9 +274,24 @@ export function InventoryModal({
                         >
                           <div>
                             <div className="flex items-center justify-between gap-2 text-xs">
-                              <span className="font-bold" style={{ color: meta.color }}>
-                                {w.name}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                {(w.spriteKey === 'sandal_swallow' ||
+                                  w.spriteKey === 'sandal_swallow_v2' ||
+                                  w.spriteKey === 'godslayer') && (
+                                  <PixelSpritePreview
+                                    spriteKey={
+                                      w.spriteKey as
+                                        | 'sandal_swallow'
+                                        | 'sandal_swallow_v2'
+                                        | 'godslayer'
+                                    }
+                                    size={24}
+                                  />
+                                )}
+                                <span className="font-bold" style={{ color: meta.color }}>
+                                  {w.name}
+                                </span>
+                              </div>
                               <span
                                 className="font-mono-num font-bold"
                                 style={{ color: meta.color }}
@@ -209,6 +301,9 @@ export function InventoryModal({
                             </div>
                             <p className="mt-1 text-xs text-slate-200 font-mono-num">
                               DMG {w.damage} · Tebang {w.chopMultiplier}x · Mana {w.manaCost}
+                              {(w.knockbackMult ?? 1) > 1
+                                ? ` · KB ${Math.round((w.knockbackMult ?? 1) * 100)}%`
+                                : ''}
                             </p>
                             <p className="mt-1 text-xs text-slate-300">{w.description}</p>
                           </div>
@@ -249,7 +344,7 @@ export function InventoryModal({
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {CRAFTING_RECIPES.map((recipe) => {
-                const meta = RARITY_META[recipe.rarity];
+                const meta = getRecipeRarityStyle(recipe);
                 const canAfford =
                   player.materials.wood >= recipe.cost.wood &&
                   player.materials.ironwood >= recipe.cost.ironwood &&
@@ -262,9 +357,14 @@ export function InventoryModal({
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="text-sm font-bold" style={{ color: meta.color }}>
-                          {recipe.name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {recipe.weaponId === 'sandal_swallow' && (
+                            <PixelSpritePreview spriteKey="sandal_swallow" size={24} />
+                          )}
+                          <span className="text-sm font-bold" style={{ color: meta.color }}>
+                            {recipe.name}
+                          </span>
+                        </div>
                         <span
                           className="font-mono-num font-bold"
                           style={{ color: meta.color }}

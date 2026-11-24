@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { getSpriteAtlas, SpriteAtlas } from '../game/sprites';
 
 interface PixelSpritePreviewProps {
-  spriteKey: keyof SpriteAtlas;
+  spriteKey: Exclude<keyof SpriteAtlas, 'biomes'>;
   size?: number;
   className?: string;
 }
@@ -21,6 +21,7 @@ export function PixelSpritePreview({
     if (!ctx) return;
     const atlas = getSpriteAtlas();
     const src = atlas[spriteKey];
+    if (!(src instanceof HTMLCanvasElement)) return;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, size, size);
     const scale = Math.min(size / src.width, size / src.height);

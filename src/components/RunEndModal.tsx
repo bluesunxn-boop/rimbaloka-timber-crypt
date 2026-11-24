@@ -1,4 +1,4 @@
-import { ArrowDown, Home, Play, RotateCcw, Skull, Trophy } from 'lucide-react';
+import { ArrowDown, Home, Play, RotateCcw, Settings, Skull, Trophy } from 'lucide-react';
 import { GameScreen, HudSnapshot } from '../game/types';
 
 interface RunEndModalProps {
@@ -8,6 +8,7 @@ interface RunEndModalProps {
   onNextFloor: () => void;
   onRestartSameClass: () => void;
   onBackToClassSelect: () => void;
+  onOpenSettings?: () => void;
 }
 
 export function RunEndModal({
@@ -17,6 +18,7 @@ export function RunEndModal({
   onNextFloor,
   onRestartSameClass,
   onBackToClassSelect,
+  onOpenSettings,
 }: RunEndModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
@@ -36,7 +38,7 @@ export function RunEndModal({
               {mode === 'PAUSED'
                 ? 'Progress otomatis tersimpan di penyimpanan lokal.'
                 : mode === 'VICTORY'
-                ? `Raja Treant di Lantai ${hud.floor} tumbang! Lanjutkan ke lantai lebih dalam atau ambil loot dulu.`
+                ? `${hud.floor === 5 ? 'Durian Raksak' : 'Raja Treant'} di Lantai ${hud.floor} tumbang! Lanjutkan ke lantai lebih dalam atau ambil loot dulu.`
                 : `Petualangan terhenti di Lantai ${hud.floor}.`}
             </p>
           </div>
@@ -57,22 +59,42 @@ export function RunEndModal({
             <p className="mt-0.5 text-base font-bold text-emerald-300">{hud.kills}</p>
           </div>
           <div>
-            <span className="text-slate-400">Pohon Ditebang</span>
-            <p className="mt-0.5 text-base font-bold text-sky-300">{hud.treesChopped}</p>
+            <span className="text-slate-400">Timber Shard / Soul</span>
+            <p className="mt-0.5 text-base font-bold text-sky-300">
+              {hud.materials.timberShards} / {hud.materials.bossSouls}
+            </p>
           </div>
         </div>
+
+        {mode === 'GAME_OVER' && (
+          <div className="mt-3 rounded border border-rose-500/50 bg-rose-950/40 px-4 py-2.5 text-xs font-mono-num text-rose-200">
+            Penalti Gugur: <strong className="text-rose-300">Gold hilang 50% (-{hud.goldLostOnDeath} Gold)</strong> · Sisa Gold: {hud.materials.gold}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="mt-5 flex flex-col gap-2.5">
           {mode === 'PAUSED' && (
-            <button
-              type="button"
-              onClick={onResume}
-              className="inline-flex items-center justify-center gap-2 rounded bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400 whitespace-nowrap cursor-pointer"
-            >
-              <Play className="h-4 w-4 fill-current" />
-              Lanjutkan Bermain
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onResume}
+                className="inline-flex items-center justify-center gap-2 rounded bg-emerald-500 px-4 py-2.5 text-sm font-bold text-slate-950 hover:bg-emerald-400 whitespace-nowrap cursor-pointer"
+              >
+                <Play className="h-4 w-4 fill-current" />
+                Lanjutkan Bermain
+              </button>
+              {onOpenSettings && (
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="inline-flex items-center justify-center gap-2 rounded border border-[#345040] bg-[#132219] px-4 py-2.5 text-sm font-semibold text-amber-200 hover:border-amber-400/60 whitespace-nowrap cursor-pointer"
+                >
+                  <Settings className="h-4 w-4" />
+                  Setting Kontrol (D-PAD / Analog)
+                </button>
+              )}
+            </>
           )}
 
           {mode === 'VICTORY' && (

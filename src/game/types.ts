@@ -1,8 +1,45 @@
 export type HeroClassId = 'knight' | 'archer' | 'mage';
 
-export type Rarity = 'common' | 'rare' | 'epic' | 'langka' | 'mythic' | 'legendary';
+export type ControlMode = 'dpad' | 'analog';
+
+export type DpadSize = 'small' | 'medium' | 'large';
+
+export type CharacterId =
+  | 'bram'
+  | 'kala'
+  | 'jaka'
+  | 'roni'
+  | 'ujang'
+  | 'cecep'
+  | 'sutar'
+  | 'mandor_gupal'
+  | 'dewi_rimba'
+  | 'mbah_jagat'
+  | 'agni'
+  | 'sarka'
+  | 'lesti'
+  | 'ratu_durian'
+  | 'siluman_kayu'
+  | 'nyi_blorong'
+  | 'bocah_hutan'
+  | 'rimba'
+  | 'loka'
+  | 'draksa';
+
+export type CharacterRarity = 'common' | 'gold' | 'mythic' | 's1';
+
+export type Rarity =
+  | 'common'
+  | 'uncommon'
+  | 'rare'
+  | 'epic'
+  | 'langka'
+  | 'mythic'
+  | 'legendary';
 
 export type WeaponKind = 'melee' | 'bow' | 'staff';
+
+export type BiomeId = 'rotten_forest' | 'durian_swamp' | 'ice_crypt';
 
 export type GameScreen =
   | 'CLASS_SELECT'
@@ -12,6 +49,23 @@ export type GameScreen =
   | 'SKILL_TREE'
   | 'VICTORY'
   | 'GAME_OVER';
+
+export interface CharacterDef {
+  id: CharacterId;
+  name: string;
+  title: string;
+  rarity: CharacterRarity;
+  spriteKey: string;
+  signatureWeaponId: string;
+  passiveName: string;
+  passiveDesc: string;
+  synergyClass: HeroClassId | 'any';
+  synergyName: string;
+  synergyDesc: string;
+  isUltimate?: boolean;
+  gachaVoicePitch: number;
+  gachaSfxStyle: 'wood' | 'swift' | 'sizzle' | 'whistle' | 'mystic' | 'durian' | 'divine';
+}
 
 export interface WeaponDef {
   id: string;
@@ -27,6 +81,9 @@ export interface WeaponDef {
   spreadAngle?: number; // radians
   critBonus: number; // 0 - 1
   chopMultiplier: number;
+  knockbackMult?: number;
+  sfxKind?: 'plok';
+  swingVisual?: 'sandal_spin';
   description: string;
   spriteKey: string;
   color: string;
@@ -49,6 +106,16 @@ export interface CraftingRecipe {
     ironwood: number;
     elderwood: number;
   };
+}
+
+export interface BlueprintDef {
+  id: string;
+  weaponId: string;
+  name: string;
+  rarity: 'epic' | 'legendary';
+  goldCost: number;
+  shardCost: number;
+  soulCost: number;
 }
 
 export type SkillBranch = 'base' | 'surga' | 'neraka';
@@ -89,10 +156,16 @@ export interface MaterialsBag {
   ironwood: number;
   elderwood: number;
   potions: number;
+  gold: number;
+  timberShards: number;
+  bossSouls: number;
+  gems: number;
 }
 
 export interface PlayerState {
   classId: HeroClassId;
+  characterId: CharacterId;
+  synergyActive: boolean;
   x: number;
   y: number;
   vx: number;
@@ -121,14 +194,27 @@ export interface PlayerState {
   invulnTimer: number;
   shieldTimer: number;
   hasteTimer: number;
+  stunTimer: number;
+  stealthTimer: number;
+  stealthCooldown: number;
+  umbrellaReady: boolean;
+  umbrellaCooldown: number;
+  rainTimer: number;
+  rainCooldown: number;
+  forestAliveTimer: number;
+  reincarnatedUsed: boolean;
+  ultimateUsed: boolean;
+  dashCharges: number;
+  dashRechargeTimer: number;
+  killCounter: number;
   animTime: number;
   kills: number;
   treesChopped: number;
   score: number;
 }
 
-export type TileType = 0 | 1 | 2 | 3;
-// 0 = void/dark canopy, 1 = mossy wooden floor, 2 = dark bark wall, 3 = torch floor
+export type TileType = 0 | 1 | 2 | 3 | 4;
+// 0 = void/dark canopy, 1 = biome floor, 2 = biome wall, 3 = torch floor, 4 = sticky mud / hazard tile
 
 export interface RoomRect {
   id: number;
@@ -160,7 +246,8 @@ export type EnemyKind =
   | 'thorn_slime'
   | 'goblin_scout'
   | 'goblin_slinger'
-  | 'boss_treant';
+  | 'boss_treant'
+  | 'boss_durian';
 
 export interface EnemyEntity {
   id: string;
@@ -184,7 +271,16 @@ export interface EnemyEntity {
   alerted: boolean;
   attackCooldown: number;
   windupTimer: number;
-  windupKind: 'none' | 'lunge' | 'shoot' | 'radial' | 'slam' | 'summon';
+  windupKind:
+    | 'none'
+    | 'lunge'
+    | 'shoot'
+    | 'radial'
+    | 'slam'
+    | 'summon'
+    | 'leap'
+    | 'durian_throw'
+    | 'roll_charge';
   facingX: number;
   hitFlash: number;
   freezeTimer: number;
@@ -192,10 +288,66 @@ export interface EnemyEntity {
   poisonDps: number;
   burnTimer: number;
   burnDps: number;
+  fearTimer?: number;
+  pacifiedTimer?: number;
+  atkDebuffTimer?: number;
+  slipCooldown?: number;
   isMiniBoss?: boolean;
+  rollTimer?: number;
+  rollVx?: number;
+  rollVy?: number;
+  rollHitDone?: boolean;
+  jumpTimer?: number;
+  jumpMaxTimer?: number;
+  jumpStartX?: number;
+  jumpStartY?: number;
+  jumpTargetX?: number;
+  jumpTargetY?: number;
+  spinAngle?: number;
+  aimAngle?: number;
+  kbVx?: number;
+  kbVy?: number;
+  kbTimer?: number;
+  nightBuffed?: boolean;
+  baseMaxHp?: number;
+  baseDamage?: number;
   animTime: number;
   phase: 1 | 2;
   expReward: number;
+}
+
+export interface AllyEntity {
+  id: string;
+  kind: 'kuli' | 'mandor_elite' | 'totem' | 'totem_curse' | 'mini_treant' | 'mage_treant';
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  damage: number;
+  life: number;
+  attackTimer: number;
+  pulseTimer: number;
+  facingX: number;
+}
+
+export interface FloorZone {
+  id: string;
+  kind: 'fire_trail' | 'blackhole' | 'whirlpool' | 'root_spike' | 'meteor_telegraph';
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;
+  life: number;
+  maxLife: number;
+  tickTimer: number;
+  pullStrength?: number;
+}
+
+export interface LightningArc {
+  points: Array<{ x: number; y: number }>;
+  color: string;
+  life: number;
+  maxLife: number;
 }
 
 export interface Projectile {
@@ -210,11 +362,30 @@ export interface Projectile {
   isCrit: boolean;
   life: number;
   color: string;
-  kind: 'arrow' | 'orb' | 'slash_wave' | 'sap' | 'dart' | 'thorn';
+  kind:
+    | 'arrow'
+    | 'orb'
+    | 'slash_wave'
+    | 'sap'
+    | 'dart'
+    | 'thorn'
+    | 'mini_durian'
+    | 'bakso'
+    | 'rotten_durian'
+    | 'doll';
   pierceLeft: number;
   hitIds: string[];
   aoeRadius?: number;
   chainCount?: number;
+  stunDuration?: number;
+  rootDuration?: number;
+  poisonDps?: number;
+  burnDps?: number;
+  pullPlayerTarget?: boolean;
+  spawnZoneKind?: FloorZone['kind'];
+  summonKind?: AllyEntity['kind'];
+  ignoreWalls?: boolean;
+  explodeOnExpire?: boolean;
   chopMultiplier: number;
 }
 
@@ -224,12 +395,45 @@ export interface GroundDrop {
   y: number;
   vx: number;
   vy: number;
-  kind: 'wood' | 'ironwood' | 'elderwood' | 'hp_berry' | 'mana_shard' | 'potion' | 'weapon';
+  kind:
+    | 'wood'
+    | 'ironwood'
+    | 'elderwood'
+    | 'hp_berry'
+    | 'mana_shard'
+    | 'potion'
+    | 'weapon'
+    | 'gold'
+    | 'timber_shard'
+    | 'boss_soul'
+    | 'blueprint'
+    | 'gem'
+    | 'bakso';
   amount: number;
   rarity: Rarity;
   weaponDefId?: string;
+  blueprintId?: string;
   bobPhase: number;
   life: number;
+}
+
+export type TrapKind = 'spikes' | 'flame_jet' | 'falling_durian' | 'root_snare';
+
+export interface TrapEntity {
+  id: string;
+  kind: TrapKind;
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;
+  cycleTimer: number;
+  period: number;
+  state: 'idle' | 'warning' | 'active';
+  stateTimer: number;
+  dirX?: number;
+  dirY?: number;
+  hitThisCycle?: boolean;
+  oneShot?: boolean;
 }
 
 export interface SlamTelegraph {
@@ -250,6 +454,7 @@ export interface SlashArc {
   color: string;
   timer: number;
   maxTimer: number;
+  visual?: 'arc' | 'sandal_spin';
 }
 
 export interface Particle {
@@ -277,12 +482,17 @@ export interface FloatingText {
 
 export interface DungeonState {
   floor: number;
+  biome: BiomeId;
   width: number;
   height: number;
   tiles: TileType[][];
   rooms: RoomRect[];
   trees: ChoppableTree[];
+  traps: TrapEntity[];
   enemies: EnemyEntity[];
+  allies: AllyEntity[];
+  zones: FloorZone[];
+  arcs: LightningArc[];
   drops: GroundDrop[];
   projectiles: Projectile[];
   slams: SlamTelegraph[];
@@ -306,17 +516,33 @@ export interface HudSnapshot {
   skillPoints: number;
   chosenPath: 'surga' | 'neraka' | null;
   heavenShieldReady: boolean;
+  stunTimer: number;
   classId: HeroClassId;
+  characterId: CharacterId;
+  characterName: string;
+  synergyActive: boolean;
+  synergyName: string;
+  stealthTimer: number;
+  rainActive: boolean;
+  forestAliveTimer: number;
+  reincarnatedUsed: boolean;
+  ultimateUsed: boolean;
+  dashCharges: number;
   activeWeapon: WeaponDef;
   secondaryWeapon: WeaponDef | null;
   activeWeaponSlot: 0 | 1;
   materials: MaterialsBag;
+  maxPotions: number;
   skillCooldown: number;
   skillCooldownMax: number;
+  dodgeDashCooldown: number;
   floor: number;
+  biome: BiomeId;
+  biomeName: string;
   kills: number;
   treesChopped: number;
   score: number;
+  goldLostOnDeath: number;
   boss: {
     name: string;
     hp: number;
@@ -340,12 +566,25 @@ export interface HudSnapshot {
   playerTileY: number;
   mapWidth: number;
   mapHeight: number;
+  timeOfDay: 'day' | 'night';
+  cycleRemaining: number;
 }
 
 export interface ActiveRunSave {
   savedAt: number;
   floor: number;
-  player: Omit<PlayerState, 'vx' | 'vy' | 'attackTimer' | 'invulnTimer' | 'shieldTimer' | 'hasteTimer' | 'animTime'>;
+  dayCycleTime?: number;
+  player: Omit<
+    PlayerState,
+    | 'vx'
+    | 'vy'
+    | 'attackTimer'
+    | 'invulnTimer'
+    | 'shieldTimer'
+    | 'hasteTimer'
+    | 'stunTimer'
+    | 'animTime'
+  >;
 }
 
 export interface MetaProgress {
@@ -354,4 +593,16 @@ export interface MetaProgress {
   bossesSlain: number;
   totalWoodHarvested: number;
   bestScore: number;
+  gold: number;
+  gems: number;
+  timberShards: number;
+  bossSouls: number;
+  blueprints: string[];
+  craftedWeapons: string[];
+  equippedBlacksmithWeaponId: string | null;
+  unlockedCharacters: CharacterId[];
+  selectedCharacterId: CharacterId;
+  controlMode: ControlMode;
+  dpadSize: DpadSize;
+  controlSchemaVersion?: number;
 }
