@@ -1,0 +1,6 @@
+{
+  "name": "Rimbaloka: Timber Crypt",
+  "description": "Game 2D roguelite dungeon pixel-art dark forest dengan sistem tebang pohon, crafting senjata kayu, skill tree per class, dan pertarungan boss.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
